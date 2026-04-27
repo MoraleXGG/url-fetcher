@@ -31,3 +31,6 @@ output/*
 
 # Logs
 *.log
+
+# Redirect response history
+scratch.py
