@@ -4,13 +4,14 @@ CLI Python para enriquecer listados de URLs con datos HTTP y SEO en paralelo.
 
 ## Estado
 
-v0.3.0 - en desarrollo.
+v0.4.0 - en desarrollo.
 
 ## Funcionalidad prevista
 
 - ✅ Modo básico: status, content-type, redirects, response time.
 - ✅ Concurrencia: peticiones en paralelo con asyncio + httpx.
 - ✅ Inputs: TXT, CSV, JSON (XLSX pendiente).
+- ✅ Limpieza de input: deduplicación y validación automática.
 - ⬜ Outputs: CSV / JSON.
 - ⬜ Modo SEO: title, meta description, canonical, robots, h1s.
 

@@ -9,6 +9,7 @@ from pathlib import Path
 from url_fetcher.fetcher import fetch_all
 from url_fetcher.input_loader import load_urls
 from url_fetcher.models import UrlResult
+from url_fetcher.url_cleaner import CleanResult, clean_urls
 
 
 DEMO_URLS = [
@@ -40,6 +41,26 @@ def _print_result(result: UrlResult) -> None:
     print(f"Response time: {_fmt(result.response_time_ms)} ms")
     print(f"Redirect URL: {_fmt(result.redirect_url)}")
     print(f"Redirect count: {result.redirect_count}")
+
+
+def _print_clean_summary(clean: CleanResult) -> None:
+    """Imprime el reporte de limpieza antes del fetch."""
+    valid = len(clean.valid_unique)
+    dupes = clean.duplicates_count
+    invalid = len(clean.invalid)
+
+    if dupes == 0 and invalid == 0:
+        print(f"Procesando {valid} URLs.")
+        return
+
+    print(f"Input: {clean.total_input} URLs encontradas.")
+    if dupes > 0:
+        print(f"  - {dupes} duplicadas eliminadas.")
+    if invalid > 0:
+        print(f"  - {invalid} inválidas descartadas:")
+        for url in clean.invalid:
+            print(f'      · "{url}"')
+    print(f"Procesando {valid} URLs únicas y válidas.")
 
 
 def _resolve_input(value: str, url_column: str | None) -> list[str]:
@@ -96,15 +117,22 @@ def main() -> None:
         parser.error("se requiere una URL posicional o la flag --demo")
 
     if args.demo:
-        urls = DEMO_URLS
+        raw_urls = DEMO_URLS
     else:
-        urls = _resolve_input(args.url, args.url_column)
-        if not urls:
+        raw_urls = _resolve_input(args.url, args.url_column)
+        if not raw_urls:
             print(f"No se encontraron URLs en {args.url}")
             sys.exit(1)
 
+    clean = clean_urls(raw_urls)
+    _print_clean_summary(clean)
+    if not clean.valid_unique:
+        print("Error: ninguna URL válida en el input.")
+        sys.exit(1)
+    print()
+
     start = time.perf_counter()
-    results = asyncio.run(fetch_all(urls))
+    results = asyncio.run(fetch_all(clean.valid_unique))
     elapsed = time.perf_counter() - start
 
     for i, result in enumerate(results):
