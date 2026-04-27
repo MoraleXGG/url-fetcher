@@ -1,0 +1,17 @@
+[project]
+name = "url-fetcher"
+version = "0.1.0"
+description = "CLI to enrich URL lists with HTTP and SEO data, concurrently."
+readme = "README.md"
+authors = [
+    { name = "MoraleX", email = "alejandromoralesfdez@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = []
+
+[project.scripts]
+url-fetcher = "url_fetcher.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.11.8,<0.12.0"]
+build-backend = "uv_build"

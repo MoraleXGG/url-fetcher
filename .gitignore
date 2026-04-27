@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual envs
+.venv/
+venv/
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Outputs (pero conservar la carpeta vacía)
+output/*
+!output/.gitkeep
+
+# Env
+.env
+.env.local
+
+# Editores
+.vscode/
+.idea/
+
+# Logs
+*.log
