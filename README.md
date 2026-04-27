@@ -4,15 +4,15 @@ CLI Python para enriquecer listados de URLs con datos HTTP y SEO en paralelo.
 
 ## Estado
 
-En desarrollo activo (v0.1.0).
+v0.2.0 - en desarrollo.
 
 ## Funcionalidad prevista
 
-- **Modo básico**: status, content-type, redirects, response time.
-- **Modo SEO**: title, meta description, canonical, robots, h1s y resto de etiquetas SEO via parsing HTML.
-- Inputs: CSV / JSON / XLSX / TXT / stdin / URL única.
-- Outputs: CSV o JSON.
-- Peticiones concurrentes con httpx + asyncio.
+- ✅ Modo básico: status, content-type, redirects, response time.
+- ✅ Concurrencia: peticiones en paralelo con asyncio + httpx.
+- ⬜ Inputs: CSV / JSON / XLSX / TXT / stdin.
+- ⬜ Outputs: CSV / JSON.
+- ⬜ Modo SEO: title, meta description, canonical, robots, h1s.
 
 ## Stack
 
@@ -24,7 +24,15 @@ Pendiente de documentar.
 
 ## Uso
 
-Pendiente de documentar.
+Una sola URL:
+
+    uv run url-fetcher https://example.com
+
+Demo con varias URLs en paralelo:
+
+    uv run url-fetcher --demo
+
+Pendiente de documentar el resto cuando esté implementado.
 
 ## Licencia
 
