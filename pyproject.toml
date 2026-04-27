@@ -7,7 +7,9 @@ authors = [
     { name = "MoraleX", email = "alejandromoralesfdez@gmail.com" }
 ]
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "httpx>=0.28.1",
+]
 
 [project.scripts]
 url-fetcher = "url_fetcher.cli:main"
