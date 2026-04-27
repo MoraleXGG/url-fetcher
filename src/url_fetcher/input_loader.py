@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 # Nombres de columna URL que se buscan automáticamente, en orden de preferencia.
-DEFAULT_URL_COLUMNS = ["url", "loc", "link", "address", "href"]
+DEFAULT_URL_COLUMNS = ["url", "loc", "link", "address"]
 
 
 def load_urls(path: Path, url_column: str | None = None) -> list[str]:
