@@ -34,3 +34,6 @@ output/*
 
 # Redirect response history
 scratch.py
+
+# Ejemplos de URLs
+test_data/
