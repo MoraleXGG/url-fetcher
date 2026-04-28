@@ -10,15 +10,15 @@ from openpyxl import load_workbook
 # El matching es case-insensitive; las variantes que solo difieren en case
 # están aquí como pista de los formatos típicos para futuros mantenedores.
 DEFAULT_URL_COLUMNS = [
-    "url",                # genérico
-    "URL",                # Search Console y otros
-    "Original Url",       # Screaming Frog (export estándar)
-    "Address",            # Screaming Frog (otras vistas)
-    "loc",                # sitemap.xml
+    "url",  # genérico
+    "URL",  # Search Console y otros
+    "Original Url",  # Screaming Frog (export estándar)
+    "Address",  # Screaming Frog (otras vistas)
+    "loc",  # sitemap.xml
     "link",
-    "Página",             # Search Console español
-    "Top URL",            # Search Console: páginas top
-    "Página principal",   # Search Console español alternativo
+    "Página",  # Search Console español
+    "Top URL",  # Search Console: páginas top
+    "Página principal",  # Search Console español alternativo
 ]
 
 
@@ -41,9 +41,7 @@ def load_urls(path: Path, url_column: str | None = None) -> list[str]:
         return _load_json(path, url_column)
     if suffix in (".xlsx", ".xlsm"):
         return _load_xlsx(path, url_column)
-    raise ValueError(
-        f"Formato no soportado: '{suffix}'. Soportados: .txt, .csv, .json, .xlsx"
-    )
+    raise ValueError(f"Formato no soportado: '{suffix}'. Soportados: .txt, .csv, .json, .xlsx")
 
 
 def _load_txt(path: Path) -> list[str]:
@@ -69,8 +67,7 @@ def _resolve_column(fieldnames: list[str], url_column: str | None) -> str:
         real = lower_map.get(url_column.lower())
         if real is None:
             raise ValueError(
-                f"La columna '{url_column}' no existe. "
-                f"Columnas disponibles: {fieldnames}"
+                f"La columna '{url_column}' no existe. Columnas disponibles: {fieldnames}"
             )
         return real
     for candidate in DEFAULT_URL_COLUMNS:
@@ -119,8 +116,8 @@ def _load_xlsx(path: Path, url_column: str | None) -> list[str]:
         rows_iter = ws.iter_rows(values_only=True)
         try:
             header_row = next(rows_iter)
-        except StopIteration:
-            raise ValueError(f"XLSX vacío: {path}")
+        except StopIteration as exc:
+            raise ValueError(f"XLSX vacío: {path}") from exc
 
         headers = [str(h) if h is not None else "" for h in header_row]
         column = _resolve_column(headers, url_column)
@@ -154,11 +151,5 @@ def _load_json(path: Path, url_column: str | None) -> list[str]:
         return [item for item in data if isinstance(item, str)]
     if isinstance(first, dict):
         column = _resolve_column(list(first.keys()), url_column)
-        return [
-            item[column]
-            for item in data
-            if isinstance(item, dict) and column in item
-        ]
-    raise ValueError(
-        f"Tipo de elemento JSON no soportado: {type(first).__name__}"
-    )
+        return [item[column] for item in data if isinstance(item, dict) and column in item]
+    raise ValueError(f"Tipo de elemento JSON no soportado: {type(first).__name__}")

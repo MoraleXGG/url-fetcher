@@ -4,7 +4,6 @@ import asyncio
 import sys
 import time
 from contextlib import nullcontext
-from typing import Optional
 
 import httpx
 from rich.console import Console
@@ -21,7 +20,6 @@ from url_fetcher import __version__
 from url_fetcher.models import UrlResult
 from url_fetcher.parser import compute_indexability, parse_html
 from url_fetcher.robots import RobotsChecker
-
 
 # Errores de red TRANSITORIOS que justifican un reintento. NO incluimos
 # `httpx.HTTPStatusError` (4xx/5xx son respuestas válidas, no fallos de red)
@@ -83,9 +81,7 @@ async def _do_fetch(
     #   - Si solo hay 1 redirect: response.url es el destino del primer salto.
     history = response.history
     if history:
-        redirect_url = (
-            str(history[1].url) if len(history) >= 2 else str(response.url)
-        )
+        redirect_url = str(history[1].url) if len(history) >= 2 else str(response.url)
     else:
         redirect_url = None
 
@@ -137,7 +133,7 @@ async def fetch_url(
     client: httpx.AsyncClient,
     url: str,
     mode: str = "basic",
-    robots_checker: Optional[RobotsChecker] = None,
+    robots_checker: RobotsChecker | None = None,
     retries: int = 1,
     max_body_size_mb: float = 2.0,
 ) -> UrlResult:
@@ -151,12 +147,10 @@ async def fetch_url(
         if not allowed:
             result = UrlResult(url=url, error="Blocked by robots.txt")
             if mode == "seo":
-                _apply_seo_indexability(
-                    result, has_response=False, blocked_by_robots=True
-                )
+                _apply_seo_indexability(result, has_response=False, blocked_by_robots=True)
             return result
 
-    last_exception: Optional[BaseException] = None
+    last_exception: BaseException | None = None
     for attempt in range(retries + 1):
         try:
             return await _do_fetch(client, url, mode, max_body_size_mb)
@@ -164,7 +158,7 @@ async def fetch_url(
             last_exception = exc
             if attempt < retries:
                 # Backoff exponencial con tope.
-                wait = min(2 ** attempt, _MAX_BACKOFF_SECONDS)
+                wait = min(2**attempt, _MAX_BACKOFF_SECONDS)
                 await asyncio.sleep(wait)
                 continue
             break  # agotamos reintentos
@@ -182,7 +176,7 @@ async def fetch_all(
     concurrency: int = 20,
     mode: str = "basic",
     timeout: float = 15.0,
-    user_agent: Optional[str] = None,
+    user_agent: str | None = None,
     max_redirects: int = 10,
     show_progress: bool = True,
     respect_robots: bool = False,
@@ -227,15 +221,11 @@ async def fetch_all(
         max_redirects=max_redirects,
         follow_redirects=True,
     ) as client:
-        robots_checker = (
-            RobotsChecker(client, user_agent) if respect_robots else None
-        )
+        robots_checker = RobotsChecker(client, user_agent) if respect_robots else None
 
         with progress_ctx:
             task_id = (
-                progress.add_task("processing", total=len(urls))
-                if progress is not None
-                else None
+                progress.add_task("processing", total=len(urls)) if progress is not None else None
             )
 
             async def _bounded_fetch(url: str) -> UrlResult:

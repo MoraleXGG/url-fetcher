@@ -1,12 +1,11 @@
 """Extracción de campos SEO de HTML usando selectolax."""
 
-from typing import Optional
 from urllib.parse import urljoin, urlparse, urlunparse
 
 from selectolax.parser import HTMLParser
 
 
-def _attr(node, name: str) -> Optional[str]:
+def _attr(node, name: str) -> str | None:
     """Lee un atributo, hace strip y devuelve None si queda vacío."""
     if node is None:
         return None
@@ -17,7 +16,7 @@ def _attr(node, name: str) -> Optional[str]:
     return val or None
 
 
-def _text(node) -> Optional[str]:
+def _text(node) -> str | None:
     if node is None:
         return None
     val = node.text(strip=True)
@@ -109,14 +108,14 @@ def _norm(url: str) -> str:
 
 
 def compute_indexability(
-    status_code: Optional[int],
-    meta_robots: Optional[str],
-    x_robots_tag: Optional[str],
-    canonical: Optional[str],
-    final_url: Optional[str],
+    status_code: int | None,
+    meta_robots: str | None,
+    x_robots_tag: str | None,
+    canonical: str | None,
+    final_url: str | None,
     has_response: bool,
     blocked_by_robots: bool = False,
-) -> tuple[Optional[str], Optional[str]]:
+) -> tuple[str | None, str | None]:
     """Devuelve `(indexability, indexability_status)` estilo Screaming Frog.
 
     Razones de "Non-Indexable" priorizadas (la primera que case gana):

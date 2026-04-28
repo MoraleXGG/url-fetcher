@@ -1,6 +1,6 @@
 [project]
 name = "url-fetcher"
-version = "0.10.0"
+version = "0.10.1"
 description = "CLI to enrich URL lists with HTTP and SEO data, concurrently."
 readme = "README.md"
 authors = [
@@ -20,3 +20,30 @@ url-fetcher = "url_fetcher.cli:main"
 [build-system]
 requires = ["uv_build>=0.11.8,<0.12.0"]
 build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.12",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+# E, W: pycodestyle errores/warnings
+# F: pyflakes (imports no usados, etc.)
+# I: orden de imports (sustituye a isort)
+# UP: pyupgrade (sintaxis moderna)
+# B: bugbear (bugs comunes)
+# C4: comprehensions
+# SIM: simplificaciones
+select = ["E", "W", "F", "I", "UP", "B", "C4", "SIM"]
+ignore = [
+    "E501",  # line too long: gestionado por line-length, hay casos legítimos
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"

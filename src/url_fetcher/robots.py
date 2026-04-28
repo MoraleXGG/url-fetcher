@@ -52,9 +52,7 @@ class RobotsChecker:
                 # Filtrar líneas vacías para evitar que el parser de stdlib
                 # interprete una línea en blanco como fin de bloque de reglas.
                 # Patrón común en WordPress y muchos sites.
-                lines = [
-                    line for line in response.text.splitlines() if line.strip()
-                ]
+                lines = [line for line in response.text.splitlines() if line.strip()]
                 rp.parse(lines)
             else:
                 # 404, 403, redirects raros, etc.: asumir permitido.

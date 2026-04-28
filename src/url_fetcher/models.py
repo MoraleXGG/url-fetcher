@@ -1,7 +1,6 @@
 """Dataclasses y tipos compartidos del proyecto."""
 
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass
@@ -9,29 +8,29 @@ class UrlResult:
     """Resultado de procesar una URL. Campos básicos siempre, SEO opcionales."""
 
     url: str
-    final_url: Optional[str] = None
-    status_code: Optional[int] = None
-    content_type: Optional[str] = None
-    response_time_ms: Optional[int] = None
-    redirect_url: Optional[str] = None
+    final_url: str | None = None
+    status_code: int | None = None
+    content_type: str | None = None
+    response_time_ms: int | None = None
+    redirect_url: str | None = None
     redirect_count: int = 0
-    error: Optional[str] = None
+    error: str | None = None
 
     # Campos SEO (rellenos solo en --mode seo)
-    indexability: Optional[str] = None         # "Indexable" | "Non-Indexable" | None
-    indexability_status: Optional[str] = None  # razón de no indexación (en inglés)
-    title: Optional[str] = None
-    meta_description: Optional[str] = None
-    canonical: Optional[str] = None
-    meta_robots: Optional[str] = None
-    x_robots_tag: Optional[str] = None
-    h1: Optional[str] = None
-    h1_count: Optional[int] = None
-    h1_all: Optional[str] = None
-    lang: Optional[str] = None
-    og_title: Optional[str] = None
-    og_description: Optional[str] = None
-    h2_count: Optional[int] = None
-    word_count: Optional[int] = None
-    size_kb: Optional[float] = None
-    last_modified: Optional[str] = None
+    indexability: str | None = None  # "Indexable" | "Non-Indexable" | None
+    indexability_status: str | None = None  # razón de no indexación (en inglés)
+    title: str | None = None
+    meta_description: str | None = None
+    canonical: str | None = None
+    meta_robots: str | None = None
+    x_robots_tag: str | None = None
+    h1: str | None = None
+    h1_count: int | None = None
+    h1_all: str | None = None
+    lang: str | None = None
+    og_title: str | None = None
+    og_description: str | None = None
+    h2_count: int | None = None
+    word_count: int | None = None
+    size_kb: float | None = None
+    last_modified: str | None = None

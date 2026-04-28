@@ -4,6 +4,7 @@ import argparse
 import asyncio
 import sys
 import time
+from contextlib import suppress
 from pathlib import Path
 
 from url_fetcher.fetcher import fetch_all
@@ -16,7 +17,6 @@ from url_fetcher.output_writer import (
 )
 from url_fetcher.summary import format_summary
 from url_fetcher.url_cleaner import clean_urls
-
 
 DEMO_URLS = [
     "https://tipsanalistas.com",
@@ -113,13 +113,29 @@ def _resolve_output_format(format_arg: str | None, output_path: Path | None) -> 
     return format_arg
 
 
-def _write_output(
-    results: list[UrlResult], path: Path, output_format: str, sep: str = ","
-) -> None:
+def _write_output(results: list[UrlResult], path: Path, output_format: str, sep: str = ",") -> None:
     if output_format == "csv":
         write_csv(results, path, sep=sep)
     elif output_format == "json":
         write_json(results, path)
+
+
+def _ensure_utf8_streams() -> None:
+    """Fuerza UTF-8 en stdout/stderr en Windows. No-op en otros sistemas.
+
+    Windows usa cp1252 por defecto y mata los acentos de los mensajes en
+    español. `reconfigure()` solo existe en `TextIOWrapper`, así que comprobamos
+    `hasattr` y atrapamos los errores específicos por si stdout/stderr está
+    redirigido a algo no reconfigurable.
+    """
+    if sys.platform != "win32":
+        return
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            # OSError: stream redirigido a algo no reconfigurable.
+            # AttributeError: variantes de stream sin método reconfigure.
+            with suppress(OSError, AttributeError):
+                stream.reconfigure(encoding="utf-8")
 
 
 def _resolve_input(value: str, url_column: str | None) -> list[str]:
@@ -142,14 +158,7 @@ def _resolve_input(value: str, url_column: str | None) -> list[str]:
 
 
 def main() -> None:
-    # Windows usa cp1252 para stdout/stderr por defecto y mata los acentos de
-    # los mensajes en español. reconfigure() solo existe en TextIOWrapper, así
-    # que lo envolvemos en try para no romper si están redirigidos.
-    for stream in (sys.stdout, sys.stderr):
-        try:
-            stream.reconfigure(encoding="utf-8")
-        except (AttributeError, OSError):
-            pass
+    _ensure_utf8_streams()
 
     parser = argparse.ArgumentParser(
         prog="url-fetcher",
@@ -308,11 +317,7 @@ def main() -> None:
         # En batch no inundamos la consola con un resultado por URL; el archivo
         # es la fuente de verdad. Sin -o, usamos un path con timestamp en output/
         # con la extensión que corresponda al formato.
-        output_path = (
-            args.output
-            if args.output
-            else generate_default_output_path(output_format)
-        )
+        output_path = args.output if args.output else generate_default_output_path(output_format)
         _write_output(results, output_path, output_format, sep=args.sep)
     else:
         for i, result in enumerate(results):
@@ -327,11 +332,7 @@ def main() -> None:
             output_path = None
 
     show_breakdowns = len(results) > 1
-    print(
-        format_summary(
-            results, clean, elapsed, output_path, show_breakdowns, mode=args.mode
-        )
-    )
+    print(format_summary(results, clean, elapsed, output_path, show_breakdowns, mode=args.mode))
 
 
 if __name__ == "__main__":
