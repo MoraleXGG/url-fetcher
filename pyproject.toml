@@ -1,6 +1,6 @@
 [project]
 name = "url-fetcher"
-version = "0.8.0"
+version = "0.8.1"
 description = "CLI to enrich URL lists with HTTP and SEO data, concurrently."
 readme = "README.md"
 authors = [

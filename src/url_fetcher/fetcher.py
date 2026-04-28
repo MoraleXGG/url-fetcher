@@ -141,7 +141,7 @@ async def fetch_all(
     concurrency: int = 20,
     mode: str = "basic",
     timeout: int = 15,
-    user_agent: str = "url-fetcher/0.8",
+    user_agent: str = "url-fetcher/0.8.1",
     max_redirects: int = 10,
     show_progress: bool = True,
     respect_robots: bool = False,
