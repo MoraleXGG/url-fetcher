@@ -39,12 +39,27 @@ def build_content_type_summary(results: list[UrlResult]) -> dict[str, int]:
     return dict(counter.most_common())
 
 
+def build_index_summary(results: list[UrlResult]) -> dict[str, int]:
+    """Cuenta por status_index. Bucket "N/A" para status_index None.
+
+    Aplicable solo a modo SEO; en modo básico todos serían "N/A".
+    """
+    counter: Counter[str] = Counter()
+    for r in results:
+        if r.status_index in ("Indexable", "No Indexable"):
+            counter[r.status_index] += 1
+        else:
+            counter["N/A"] += 1
+    return dict(counter.most_common())
+
+
 def format_summary(
     results: list[UrlResult],
     clean_result: CleanResult,
     elapsed_seconds: float,
     output_path: Path | None = None,
     show_breakdowns: bool = True,
+    mode: str = "basic",
 ) -> str:
     """Compone el bloque "--- Resumen ---" como un único string."""
     n = len(results)
@@ -86,6 +101,15 @@ def format_summary(
                     pct = (count / n) * 100
                     content_lines.append(f"  {ctype}: {count} ({pct:.1f}%)")
                 blocks.append("\n".join(content_lines))
+
+        if mode == "seo":
+            index_summary = build_index_summary(results)
+            if index_summary:
+                idx_lines = ["", "Por estado de indexación:"]
+                for label, count in index_summary.items():
+                    pct = (count / n) * 100
+                    idx_lines.append(f"  {label}: {count} ({pct:.1f}%)")
+                blocks.append("\n".join(idx_lines))
 
     if output_path is not None:
         blocks.append(f"\nOutput: {output_path}")

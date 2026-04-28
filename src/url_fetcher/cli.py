@@ -46,6 +46,26 @@ def _print_result(result: UrlResult) -> None:
     print(f"Redirect URL: {_fmt(result.redirect_url)}")
     print(f"Redirect count: {result.redirect_count}")
 
+    # status_index solo se rellena en modo SEO; lo usamos como indicador de
+    # que merece la pena imprimir el resto de campos SEO.
+    if result.status_index is None and result.size_kb is None:
+        return
+    print(f"Status index: {_fmt(result.status_index)}")
+    print(f"Title: {_fmt(result.title)}")
+    print(f"Meta description: {_fmt(result.meta_description)}")
+    print(f"Canonical: {_fmt(result.canonical)}")
+    print(f"Meta robots: {_fmt(result.meta_robots)}")
+    print(f"X-Robots-Tag: {_fmt(result.x_robots_tag)}")
+    print(f"H1: {_fmt(result.h1)}")
+    print(f"H1 count: {_fmt(result.h1_count)}")
+    print(f"H2 count: {_fmt(result.h2_count)}")
+    print(f"Lang: {_fmt(result.lang)}")
+    print(f"OG title: {_fmt(result.og_title)}")
+    print(f"OG description: {_fmt(result.og_description)}")
+    print(f"Word count: {_fmt(result.word_count)}")
+    print(f"Size: {_fmt(result.size_kb)} KB")
+    print(f"Last-Modified: {_fmt(result.last_modified)}")
+
 
 def _format_unsupported(fmt: str) -> str:
     return (
@@ -114,6 +134,12 @@ def main() -> None:
         default=None,
         help="Formato de salida (solo 'csv' por ahora)",
     )
+    parser.add_argument(
+        "--mode",
+        choices=["basic", "seo"],
+        default="basic",
+        help="Modo de extracción: basic (solo headers) o seo (parsea HTML)",
+    )
     args = parser.parse_args()
 
     if args.format is not None and args.format.lower() != "csv":
@@ -147,7 +173,7 @@ def main() -> None:
         sys.exit(1)
 
     start = time.perf_counter()
-    results = asyncio.run(fetch_all(clean.valid_unique))
+    results = asyncio.run(fetch_all(clean.valid_unique, mode=args.mode))
     elapsed = time.perf_counter() - start
 
     if is_batch:
@@ -169,7 +195,11 @@ def main() -> None:
             output_path = None
 
     show_breakdowns = len(results) > 1
-    print(format_summary(results, clean, elapsed, output_path, show_breakdowns))
+    print(
+        format_summary(
+            results, clean, elapsed, output_path, show_breakdowns, mode=args.mode
+        )
+    )
 
 
 if __name__ == "__main__":
