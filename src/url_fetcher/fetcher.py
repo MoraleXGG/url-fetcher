@@ -52,7 +52,7 @@ async def fetch_all(
     urls: list[str],
     concurrency: int = 20,
     timeout: int = 15,
-    user_agent: str = "url-fetcher/0.4",
+    user_agent: str = "url-fetcher/0.5",
     max_redirects: int = 10,
 ) -> list[UrlResult]:
     """Procesa una lista de URLs en paralelo y devuelve resultados en orden de entrada."""

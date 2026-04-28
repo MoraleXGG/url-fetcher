@@ -4,7 +4,7 @@ CLI Python para enriquecer listados de URLs con datos HTTP y SEO en paralelo.
 
 ## Estado
 
-v0.4.0 - en desarrollo.
+v0.5.0 - en desarrollo.
 
 ## Funcionalidad prevista
 
@@ -12,7 +12,8 @@ v0.4.0 - en desarrollo.
 - ✅ Concurrencia: peticiones en paralelo con asyncio + httpx.
 - ✅ Inputs: TXT, CSV, JSON (XLSX pendiente).
 - ✅ Limpieza de input: deduplicación y validación automática.
-- ⬜ Outputs: CSV / JSON.
+- ✅ Outputs: CSV con timestamp automático (JSON pendiente).
+- ✅ Resumen estadístico por status_code y content_type.
 - ⬜ Modo SEO: title, meta description, canonical, robots, h1s.
 
 ## Stack
@@ -43,7 +44,23 @@ Especificando la columna URL en CSV/JSON:
 
     uv run url-fetcher urls.csv --url-column href
 
-Pendiente: output a archivo, modo SEO, XLSX.
+Output a CSV (auto-genera nombre con timestamp en `output/`):
+
+    uv run url-fetcher urls.csv
+
+Output a CSV con nombre concreto:
+
+    uv run url-fetcher urls.csv -o auditoria.csv
+
+Para una URL única, output sigue siendo por consola por defecto:
+
+    uv run url-fetcher https://example.com
+
+A no ser que pidas archivo:
+
+    uv run url-fetcher https://example.com -o resultado.csv
+
+Pendiente: modo SEO, XLSX, JSON output.
 
 ## Licencia
 
