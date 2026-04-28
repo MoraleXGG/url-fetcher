@@ -9,7 +9,11 @@ from pathlib import Path
 from url_fetcher.fetcher import fetch_all
 from url_fetcher.input_loader import load_urls
 from url_fetcher.models import UrlResult
-from url_fetcher.output_writer import generate_default_output_path, write_csv
+from url_fetcher.output_writer import (
+    generate_default_output_path,
+    write_csv,
+    write_json,
+)
 from url_fetcher.summary import format_summary
 from url_fetcher.url_cleaner import clean_urls
 
@@ -27,7 +31,9 @@ DEMO_URLS = [
     "https://www.wikipedia.org",
 ]
 
-UNSUPPORTED_OUTPUT_EXTS = {".json", ".xlsx"}
+_OUTPUT_EXT_TO_FORMAT = {".csv": "csv", ".json": "json"}
+# Extensiones que indican un formato de salida que NO soportamos todavía.
+_UNSUPPORTED_OUTPUT_EXTS = {".xlsx", ".xlsm"}
 
 
 def _fmt(value: object) -> str:
@@ -73,11 +79,45 @@ def _print_result(result: UrlResult) -> None:
     print(f"Last-Modified: {_fmt(result.last_modified)}")
 
 
-def _format_unsupported(fmt: str) -> str:
-    return (
-        f"Error: formato '{fmt}' no soportado todavía. "
-        f"Soportados: csv. (json/xlsx vendrán en commits futuros)"
-    )
+def _resolve_output_format(format_arg: str | None, output_path: Path | None) -> str:
+    """Decide el formato de salida coherente entre --format y la extensión de -o.
+
+    - Si la extensión no es soportada para output (xlsx) → error y exit 1.
+    - Si --format se pasa y choca con la extensión inferida → error y exit 1.
+    - Si solo hay extensión: la usamos.
+    - Si no hay nada: csv (default).
+    """
+    inferred: str | None = None
+    if output_path is not None:
+        suffix = output_path.suffix.lower()
+        if suffix in _UNSUPPORTED_OUTPUT_EXTS:
+            print(
+                f"Error: formato '{suffix.lstrip('.')}' no soportado para output. "
+                f"Soportados: csv, json.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        inferred = _OUTPUT_EXT_TO_FORMAT.get(suffix)
+
+    if format_arg is None:
+        return inferred or "csv"
+
+    if inferred is not None and inferred != format_arg:
+        print(
+            f"Error: --format '{format_arg}' no coincide con la extensión "
+            f"'{output_path.suffix}' de --output. Usa una sola opción coherente.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    return format_arg
+
+
+def _write_output(results: list[UrlResult], path: Path, output_format: str) -> None:
+    if output_format == "csv":
+        write_csv(results, path)
+    elif output_format == "json":
+        write_json(results, path)
 
 
 def _resolve_input(value: str, url_column: str | None) -> list[str]:
@@ -100,13 +140,14 @@ def _resolve_input(value: str, url_column: str | None) -> list[str]:
 
 
 def main() -> None:
-    # Windows usa cp1252 para stdout por defecto y mata los acentos de los
-    # mensajes en español. reconfigure() solo existe en TextIOWrapper, así
-    # que lo envolvemos en try para no romper si stdout está redirigido.
-    try:
-        sys.stdout.reconfigure(encoding="utf-8")
-    except (AttributeError, OSError):
-        pass
+    # Windows usa cp1252 para stdout/stderr por defecto y mata los acentos de
+    # los mensajes en español. reconfigure() solo existe en TextIOWrapper, así
+    # que lo envolvemos en try para no romper si están redirigidos.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8")
+        except (AttributeError, OSError):
+            pass
 
     parser = argparse.ArgumentParser(
         prog="url-fetcher",
@@ -137,8 +178,9 @@ def main() -> None:
     )
     parser.add_argument(
         "--format",
+        choices=["csv", "json"],
         default=None,
-        help="Formato de salida (solo 'csv' por ahora)",
+        help="Formato de salida: csv (default) o json. Sobrescribe la extensión de -o.",
     )
     parser.add_argument(
         "--mode",
@@ -153,15 +195,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    if args.format is not None and args.format.lower() != "csv":
-        print(_format_unsupported(args.format))
-        sys.exit(1)
-
-    if args.output is not None:
-        suffix = args.output.suffix.lower()
-        if suffix in UNSUPPORTED_OUTPUT_EXTS:
-            print(_format_unsupported(suffix.lstrip(".")))
-            sys.exit(1)
+    output_format = _resolve_output_format(args.format, args.output)
 
     if not args.url and not args.demo:
         parser.error("se requiere una URL posicional o la flag --demo")
@@ -195,11 +229,15 @@ def main() -> None:
     elapsed = time.perf_counter() - start
 
     if is_batch:
-        # En batch no inundamos la consola con un resultado por URL; el CSV
-        # es la fuente de verdad. Si el usuario no especificó -o, usamos el
-        # path con timestamp en output/.
-        output_path = args.output if args.output else generate_default_output_path("csv")
-        write_csv(results, output_path)
+        # En batch no inundamos la consola con un resultado por URL; el archivo
+        # es la fuente de verdad. Sin -o, usamos un path con timestamp en output/
+        # con la extensión que corresponda al formato.
+        output_path = (
+            args.output
+            if args.output
+            else generate_default_output_path(output_format)
+        )
+        _write_output(results, output_path, output_format)
     else:
         for i, result in enumerate(results):
             if i > 0:
@@ -207,7 +245,7 @@ def main() -> None:
             _print_result(result)
         print()
         if args.output is not None:
-            write_csv(results, args.output)
+            _write_output(results, args.output, output_format)
             output_path = args.output
         else:
             output_path = None

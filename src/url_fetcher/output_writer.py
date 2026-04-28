@@ -1,6 +1,7 @@
 """Escritura de resultados a archivos CSV (y futuros formatos)."""
 
 import csv
+import json
 from dataclasses import asdict, fields
 from datetime import datetime
 from pathlib import Path
@@ -37,3 +38,17 @@ def write_csv(results: list[UrlResult], path: Path) -> None:
                 if value is None:
                     row[key] = ""
             writer.writerow(row)
+
+
+def write_json(results: list[UrlResult], path: Path) -> None:
+    """Escribe los resultados a JSON (array de objetos).
+
+    - utf-8 sin BOM: el JSON estándar no lo lleva.
+    - ensure_ascii=False: preserva acentos legibles en lugar de escapes \\uXXXX.
+    - indent=2: legible en editor sin volverse demasiado verboso.
+    - None se serializa como null por defecto, sin convertir a "" como en CSV.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    data = [asdict(result) for result in results]
+    with path.open("w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)

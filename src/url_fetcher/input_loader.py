@@ -4,6 +4,8 @@ import csv
 import json
 from pathlib import Path
 
+from openpyxl import load_workbook
+
 # Nombres de columna URL que se buscan automáticamente, en orden de preferencia.
 # El matching es case-insensitive; las variantes que solo difieren en case
 # están aquí como pista de los formatos típicos para futuros mantenedores.
@@ -37,8 +39,10 @@ def load_urls(path: Path, url_column: str | None = None) -> list[str]:
         return _load_csv(path, url_column)
     if suffix == ".json":
         return _load_json(path, url_column)
+    if suffix in (".xlsx", ".xlsm"):
+        return _load_xlsx(path, url_column)
     raise ValueError(
-        f"Formato no soportado: '{suffix}'. Soportados: .txt, .csv, .json"
+        f"Formato no soportado: '{suffix}'. Soportados: .txt, .csv, .json, .xlsx"
     )
 
 
@@ -99,6 +103,42 @@ def _load_csv(path: Path, url_column: str | None) -> list[str]:
             raise ValueError(f"CSV sin cabecera: {path}")
         column = _resolve_column(list(reader.fieldnames), url_column)
         return [row[column].strip() for row in reader if row.get(column, "").strip()]
+
+
+def _load_xlsx(path: Path, url_column: str | None) -> list[str]:
+    """Lee la primera hoja de un .xlsx/.xlsm con la misma lógica de columnas que CSV.
+
+    - read_only + data_only: rápido en archivos grandes y devuelve el valor
+      calculado de las fórmulas (no la fórmula en sí).
+    - Convertimos cada celda a str: Excel guarda enteros como int y nadie
+      espera "https://x.com/123" como `int("...")`.
+    """
+    workbook = load_workbook(path, read_only=True, data_only=True)
+    try:
+        ws = workbook.active  # primera hoja del workbook
+        rows_iter = ws.iter_rows(values_only=True)
+        try:
+            header_row = next(rows_iter)
+        except StopIteration:
+            raise ValueError(f"XLSX vacío: {path}")
+
+        headers = [str(h) if h is not None else "" for h in header_row]
+        column = _resolve_column(headers, url_column)
+        column_index = headers.index(column)
+
+        urls: list[str] = []
+        for row in rows_iter:
+            if column_index >= len(row):
+                continue
+            value = row[column_index]
+            if value is None:
+                continue
+            text = str(value).strip()
+            if text:
+                urls.append(text)
+        return urls
+    finally:
+        workbook.close()
 
 
 def _load_json(path: Path, url_column: str | None) -> list[str]:
