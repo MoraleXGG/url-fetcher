@@ -1,6 +1,34 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # Proyecto: url-fetcher
 
 CLI Python async para auditorías SEO técnicas. Recibe listas de URLs (CSV/TXT/JSON/XLSX) y devuelve datos HTTP y SEO de cada una. Versión actual: 1.0.0.
+
+## Comandos comunes
+
+- `uv sync` — instalar dependencias y crear el entorno.
+- `uv run url-fetcher --help` — ver todas las flags disponibles.
+- `uv run url-fetcher --demo --mode seo` — smoke test estándar tras cada feature.
+- `uv run ruff check .` — pasar el linter (obligatorio antes de cada commit).
+- `uv run ruff format .` — formatear el código.
+
+No hay suite de tests automatizada (no hay `pytest` en `dev-deps`). La verificación es manual: ejecutar con `--demo` y revisar el CSV/JSON generado en `output/`.
+
+## Arquitectura / flujo de datos
+
+`cli.py` orquesta el pipeline en este orden: `input_loader` → `url_cleaner` → `fetch_all` → `output_writer` + `summary`.
+
+- **Concurrencia (`fetcher.py`)**: un único `httpx.AsyncClient` compartido + `asyncio.Semaphore(concurrency)` que limita peticiones en vuelo. `asyncio.gather` recoge resultados respetando el orden de entrada (clave para alinear input ↔ output).
+
+- **Por URL (`fetch_url`)**: aplica reintentos solo en errores de red transitorios (`TimeoutException`, `NetworkError`, `RemoteProtocolError`) con backoff exponencial 1s/2s/4s… tope 30s. **NO** reintenta status codes 4xx/5xx (son respuestas válidas) ni errores SSL (no se arreglan reintentando).
+
+- **Robots.txt**: si `--respect-robots`, `RobotsChecker` (con cache) corta antes de hacer la petición HTTP; las URLs bloqueadas se marcan sin red.
+
+- **Modo SEO**: tras la respuesta, `parse_html` (selectolax) rellena los campos SEO; después `compute_indexability` decide `Indexable`/`Non-Indexable` combinando status, `meta_robots`, `X-Robots-Tag`, y comparando `canonical` vs `final_url`.
+
+- **Output**: `output_writer` escribe CSV (`utf-8-sig`, separador configurable con `--sep`) o JSON (`ensure_ascii=False`). `summary.py` imprime los desgloses finales por status, content-type e indexability.
 
 ## Stack confirmado
 
