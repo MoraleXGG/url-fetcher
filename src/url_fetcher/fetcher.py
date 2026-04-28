@@ -18,7 +18,7 @@ from rich.progress import (
 
 from url_fetcher import __version__
 from url_fetcher.models import UrlResult
-from url_fetcher.parser import compute_indexability, parse_html
+from url_fetcher.parser import compute_indexability, parse_html, validate_hreflang
 from url_fetcher.robots import RobotsChecker
 
 # Errores de red TRANSITORIOS que justifican un reintento. NO incluimos
@@ -117,6 +117,10 @@ async def _do_fetch(
                 result.og_description = parsed["og_description"]
                 result.h2_count = parsed["h2_count"]
                 result.word_count = parsed["word_count"]
+                result.hreflang_count = parsed["hreflang_count"]
+                pairs = parsed["hreflang_pairs"]
+                result.hreflang_values = [h for h, _ in pairs]
+                result.hreflang_issues = validate_hreflang(pairs, result.final_url) or None
             except Exception as parse_exc:
                 # parsing roto != error de red; loguemos a stderr y seguimos.
                 print(

@@ -1,8 +1,13 @@
 """Extracción de campos SEO de HTML usando selectolax."""
 
+import re
 from urllib.parse import urljoin, urlparse, urlunparse
 
 from selectolax.parser import HTMLParser
+
+# Permisivo BCP47: 2-3 letras de idioma + cualquier número de subtags alfanuméricas
+# (p.ej. `zh-Hant-TW`, `es-419`, `pt-BR`). `x-default` se trata como excepción.
+_HREFLANG_RE = re.compile(r"^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})*$")
 
 
 def _attr(node, name: str) -> str | None:
@@ -47,6 +52,8 @@ def parse_html(html: str) -> dict:
             "og_description": None,
             "h2_count": None,
             "word_count": None,
+            "hreflang_count": None,
+            "hreflang_pairs": [],
         }
 
     tree = HTMLParser(html)
@@ -55,6 +62,14 @@ def parse_html(html: str) -> dict:
     meta_description = _attr(tree.css_first("meta[name='description']"), "content")
     canonical = _attr(tree.css_first("link[rel='canonical']"), "href")
     meta_robots = _attr(tree.css_first("meta[name='robots']"), "content")
+
+    hreflang_links = tree.css("head link[rel='alternate'][hreflang]")
+    hreflang_pairs: list[tuple[str, str]] = []
+    for n in hreflang_links:
+        h = _attr(n, "hreflang")
+        href = _attr(n, "href")
+        if h and href:
+            hreflang_pairs.append((h, href))
     lang = _attr(tree.css_first("html"), "lang")
     og_title = _attr(tree.css_first("meta[property='og:title']"), "content")
     og_description = _attr(tree.css_first("meta[property='og:description']"), "content")
@@ -88,6 +103,8 @@ def parse_html(html: str) -> dict:
         "og_description": og_description,
         "h2_count": h2_count,
         "word_count": word_count,
+        "hreflang_count": len(hreflang_pairs),
+        "hreflang_pairs": hreflang_pairs,
     }
 
 
@@ -105,6 +122,60 @@ def _norm(url: str) -> str:
             "",
         )
     )
+
+
+def _resolve_and_norm(base: str, ref: str) -> str:
+    """Resuelve `ref` relativo contra `base` (urljoin) y normaliza con `_norm`."""
+    return _norm(urljoin(base, ref))
+
+
+def validate_hreflang(
+    pairs: list[tuple[str, str]],
+    final_url: str | None,
+) -> str:
+    """Devuelve issues separados por '; '. Vacío si no hay issues o no hay hreflangs.
+
+    Tipos de issue (en este orden en la cadena resultante):
+      - invalid_code:CODE — código que no es `x-default` ni cumple BCP47 permisivo.
+      - missing_x_default — hay >=2 códigos distintos y ninguno es `x-default`.
+      - missing_self_reference — `final_url` no aparece como href en ningún par.
+      - duplicate_hreflang:CODE — el mismo código apunta a >=2 URLs distintas.
+    """
+    if not pairs:
+        return ""
+
+    issues: list[str] = []
+
+    for code, _ in pairs:
+        if code == "x-default":
+            continue
+        if not _HREFLANG_RE.match(code):
+            issues.append(f"invalid_code:{code}")
+
+    distinct_codes = {code for code, _ in pairs}
+    if len(distinct_codes) >= 2 and "x-default" not in distinct_codes:
+        issues.append("missing_x_default")
+
+    if final_url is not None:
+        normalized_final = _norm(final_url)
+        hrefs_normalized = {_resolve_and_norm(final_url, href) for _, href in pairs}
+        if normalized_final not in hrefs_normalized:
+            issues.append("missing_self_reference")
+
+    # Para detectar duplicados ambiguos: agrupamos por código y contamos URLs
+    # normalizadas distintas. Solo es "duplicado" si apuntan a destinos distintos.
+    by_code: dict[str, set[str]] = {}
+    base_for_norm = final_url or ""
+    for code, href in pairs:
+        if code == "x-default":
+            continue
+        norm_href = _resolve_and_norm(base_for_norm, href) if base_for_norm else href
+        by_code.setdefault(code, set()).add(norm_href)
+    for code, urls in by_code.items():
+        if len(urls) >= 2:
+            issues.append(f"duplicate_hreflang:{code}")
+
+    return "; ".join(issues)
 
 
 def compute_indexability(
@@ -147,9 +218,11 @@ def compute_indexability(
             lowered = value.lower()
             if "noindex" in lowered or "none" in lowered:
                 return ("Non-Indexable", "Noindex")
-    if canonical and final_url:
-        # canonical puede ser relativo: lo resolvemos con final_url como base.
-        absolute = urljoin(final_url, canonical)
-        if _norm(absolute) != _norm(final_url):
-            return ("Non-Indexable", "Canonicalised")
+    # canonical puede ser relativo: lo resolvemos con final_url como base.
+    if (
+        canonical
+        and final_url
+        and _resolve_and_norm(final_url, canonical) != _norm(final_url)
+    ):
+        return ("Non-Indexable", "Canonicalised")
     return ("Indexable", None)

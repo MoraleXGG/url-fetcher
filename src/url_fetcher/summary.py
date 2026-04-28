@@ -64,6 +64,46 @@ def build_indexability_status_summary(results: list[UrlResult]) -> dict[str, int
     return dict(counter.most_common())
 
 
+def build_hreflang_summary(
+    results: list[UrlResult],
+) -> tuple[dict[str, int], dict[str, int], dict[str, int]]:
+    """Devuelve (presence, state, issue_types).
+
+    - presence: con/sin hreflang.
+    - state: OK / Con issues / Sin hreflang.
+    - issue_types: agrupa issues por prefijo antes de ":". Cuenta URLs afectadas,
+      no ocurrencias (una URL con 3 issues suma 1 en cada tipo, no 3).
+    """
+    presence: Counter[str] = Counter()
+    state: Counter[str] = Counter()
+    issue_types: Counter[str] = Counter()
+
+    for r in results:
+        has_hreflang = bool(r.hreflang_values)
+        if has_hreflang:
+            presence["Con hreflang"] += 1
+        else:
+            presence["Sin hreflang"] += 1
+
+        if not has_hreflang:
+            state["Sin hreflang"] += 1
+            continue
+
+        if r.hreflang_issues:
+            state["Con issues"] += 1
+            seen_types: set[str] = set()
+            for issue in r.hreflang_issues.split("; "):
+                kind = issue.split(":", 1)[0]
+                if kind:
+                    seen_types.add(kind)
+            for kind in seen_types:
+                issue_types[kind] += 1
+        else:
+            state["OK"] += 1
+
+    return dict(presence.most_common()), dict(state.most_common()), dict(issue_types.most_common())
+
+
 def format_summary(
     results: list[UrlResult],
     clean_result: CleanResult,
@@ -129,6 +169,28 @@ def format_summary(
                     pct = (count / n) * 100
                     reason_lines.append(f"  {label}: {count} ({pct:.1f}%)")
                 blocks.append("\n".join(reason_lines))
+
+            presence, state, issue_types = build_hreflang_summary(results)
+            if presence:
+                presence_lines = ["", "Por hreflang:"]
+                for label, count in presence.items():
+                    pct = (count / n) * 100
+                    presence_lines.append(f"  {label}: {count} ({pct:.1f}%)")
+                blocks.append("\n".join(presence_lines))
+
+            if state:
+                state_lines = ["", "Por estado de hreflang:"]
+                for label, count in state.items():
+                    pct = (count / n) * 100
+                    state_lines.append(f"  {label}: {count} ({pct:.1f}%)")
+                blocks.append("\n".join(state_lines))
+
+            if issue_types:
+                issue_lines = ["", "Por tipo de issue:"]
+                for label, count in issue_types.items():
+                    pct = (count / n) * 100
+                    issue_lines.append(f"  {label}: {count} ({pct:.1f}%)")
+                blocks.append("\n".join(issue_lines))
 
     if output_path is not None:
         blocks.append(f"\nOutput: {output_path}")

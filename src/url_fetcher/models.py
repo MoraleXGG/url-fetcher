@@ -1,6 +1,6 @@
 """Dataclasses y tipos compartidos del proyecto."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -34,3 +34,6 @@ class UrlResult:
     word_count: int | None = None
     size_kb: float | None = None
     last_modified: str | None = None
+    hreflang_count: int | None = None
+    hreflang_values: list[str] = field(default_factory=list)
+    hreflang_issues: str | None = None

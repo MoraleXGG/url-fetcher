@@ -39,6 +39,9 @@ def write_csv(results: list[UrlResult], path: Path, sep: str = ",") -> None:
             for key, value in row.items():
                 if value is None:
                     row[key] = ""
+                elif isinstance(value, list):
+                    # Listas → "|"-join. Evitamos "," por colisión con el sep CSV.
+                    row[key] = "|".join(str(x) for x in value)
             writer.writerow(row)
 
 
