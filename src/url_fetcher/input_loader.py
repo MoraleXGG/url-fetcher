@@ -5,7 +5,19 @@ import json
 from pathlib import Path
 
 # Nombres de columna URL que se buscan automáticamente, en orden de preferencia.
-DEFAULT_URL_COLUMNS = ["url", "loc", "link", "address"]
+# El matching es case-insensitive; las variantes que solo difieren en case
+# están aquí como pista de los formatos típicos para futuros mantenedores.
+DEFAULT_URL_COLUMNS = [
+    "url",                # genérico
+    "URL",                # Search Console y otros
+    "Original Url",       # Screaming Frog (export estándar)
+    "Address",            # Screaming Frog (otras vistas)
+    "loc",                # sitemap.xml
+    "link",
+    "Página",             # Search Console español
+    "Top URL",            # Search Console: páginas top
+    "Página principal",   # Search Console español alternativo
+]
 
 
 def load_urls(path: Path, url_column: str | None = None) -> list[str]:
@@ -58,8 +70,19 @@ def _resolve_column(fieldnames: list[str], url_column: str | None) -> str:
             )
         return real
     for candidate in DEFAULT_URL_COLUMNS:
-        if candidate in lower_map:
-            return lower_map[candidate]
+        if candidate.lower() in lower_map:
+            return lower_map[candidate.lower()]
+    # Auto-detect falló: si hay columnas que contienen "url" en su nombre,
+    # se las ofrecemos al usuario como sugerencia para --url-column.
+    candidates = [f for f in fieldnames if "url" in f.lower()]
+    if candidates:
+        others = [f for f in fieldnames if f not in candidates]
+        raise ValueError(
+            "No se detectó columna URL automáticamente.\n"
+            f'  Columnas con "url" en el nombre: {candidates}\n'
+            f"  Otras columnas: {others}\n"
+            f'  Usa --url-column "{candidates[0]}" para indicar cuál.'
+        )
     raise ValueError(
         f"No se detectó columna URL. Columnas disponibles: {fieldnames}. "
         f"Usa --url-column para indicar cuál."

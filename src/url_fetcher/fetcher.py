@@ -101,7 +101,7 @@ async def fetch_all(
     concurrency: int = 20,
     mode: str = "basic",
     timeout: int = 15,
-    user_agent: str = "url-fetcher/0.6",
+    user_agent: str = "url-fetcher/0.6.1",
     max_redirects: int = 10,
 ) -> list[UrlResult]:
     """Procesa una lista de URLs en paralelo y devuelve resultados en orden de entrada."""
