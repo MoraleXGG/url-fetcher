@@ -3,8 +3,18 @@
 import asyncio
 import sys
 import time
+from contextlib import nullcontext
 
 import httpx
+from rich.console import Console
+from rich.progress import (
+    BarColumn,
+    MofNCompleteColumn,
+    Progress,
+    TextColumn,
+    TimeElapsedColumn,
+    TimeRemainingColumn,
+)
 
 from url_fetcher.models import UrlResult
 from url_fetcher.parser import compute_status_index, parse_html
@@ -101,14 +111,39 @@ async def fetch_all(
     concurrency: int = 20,
     mode: str = "basic",
     timeout: int = 15,
-    user_agent: str = "url-fetcher/0.6.1",
+    user_agent: str = "url-fetcher/0.7",
     max_redirects: int = 10,
+    show_progress: bool = True,
 ) -> list[UrlResult]:
-    """Procesa una lista de URLs en paralelo y devuelve resultados en orden de entrada."""
+    """Procesa una lista de URLs en paralelo y devuelve resultados en orden de entrada.
+
+    Si `show_progress` y hay más de una URL, dibuja una barra `rich.Progress`
+    en stderr (para no contaminar stdout cuando el resumen se redirige a un
+    archivo). La barra es transient: desaparece al terminar.
+    """
     # Semaphore: limita cuántas peticiones pueden estar en vuelo a la vez.
     # Sin él, asyncio.gather lanzaría todas las URLs simultáneamente y podríamos
     # saturar la red, agotar file descriptors o que el servidor nos baneara.
     semaphore = asyncio.Semaphore(concurrency)
+    use_progress = show_progress and len(urls) > 1
+
+    if use_progress:
+        progress = Progress(
+            TextColumn("[cyan]Procesando URLs[/cyan]"),
+            BarColumn(),
+            MofNCompleteColumn(),
+            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+            TextColumn("•"),
+            TimeElapsedColumn(),
+            TextColumn("•"),
+            TimeRemainingColumn(),
+            console=Console(stderr=True),
+            transient=True,
+        )
+        progress_ctx = progress
+    else:
+        progress = None
+        progress_ctx = nullcontext()
 
     async with httpx.AsyncClient(
         timeout=timeout,
@@ -116,12 +151,21 @@ async def fetch_all(
         max_redirects=max_redirects,
         follow_redirects=True,
     ) as client:
+        with progress_ctx:
+            task_id = (
+                progress.add_task("processing", total=len(urls))
+                if progress is not None
+                else None
+            )
 
-        async def _bounded_fetch(url: str) -> UrlResult:
-            async with semaphore:
-                return await fetch_url(client, url, mode=mode)
+            async def _bounded_fetch(url: str) -> UrlResult:
+                async with semaphore:
+                    result = await fetch_url(client, url, mode=mode)
+                    if progress is not None:
+                        progress.advance(task_id)
+                    return result
 
-        # gather lanza todas las tareas en paralelo y recoge sus resultados
-        # respetando el orden de la lista original — clave para que el output
-        # se pueda alinear con el input.
-        return await asyncio.gather(*(_bounded_fetch(u) for u in urls))
+            # gather lanza todas las tareas en paralelo y recoge sus resultados
+            # respetando el orden de la lista original — clave para que el output
+            # se pueda alinear con el input.
+            return await asyncio.gather(*(_bounded_fetch(u) for u in urls))

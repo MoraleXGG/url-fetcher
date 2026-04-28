@@ -4,7 +4,7 @@ CLI Python para enriquecer listados de URLs con datos HTTP y SEO en paralelo.
 
 ## Estado
 
-v0.6.0 - en desarrollo.
+v0.7.0 - en desarrollo.
 
 ## Funcionalidad prevista
 
@@ -15,6 +15,7 @@ v0.6.0 - en desarrollo.
 - ✅ Outputs: CSV con timestamp automático (JSON pendiente).
 - ✅ Resumen estadístico por status_code y content_type.
 - ✅ Modo SEO: title, meta description, canonical, robots, h1s, lang, og:*, status_index.
+- ✅ Barra de progreso con tiempo estimado durante el rastreo.
 
 ## Stack
 

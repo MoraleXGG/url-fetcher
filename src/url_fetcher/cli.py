@@ -173,7 +173,9 @@ def main() -> None:
         sys.exit(1)
 
     start = time.perf_counter()
-    results = asyncio.run(fetch_all(clean.valid_unique, mode=args.mode))
+    results = asyncio.run(
+        fetch_all(clean.valid_unique, mode=args.mode, show_progress=True)
+    )
     elapsed = time.perf_counter() - start
 
     if is_batch:
