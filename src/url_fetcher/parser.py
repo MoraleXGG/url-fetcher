@@ -108,26 +108,49 @@ def _norm(url: str) -> str:
     )
 
 
-def compute_status_index(
+def compute_indexability(
     status_code: Optional[int],
     meta_robots: Optional[str],
     x_robots_tag: Optional[str],
     canonical: Optional[str],
     final_url: Optional[str],
-) -> Optional[str]:
-    """Devuelve "Indexable" / "No Indexable" / None según las 4 reglas estándar."""
-    if status_code is None:
-        return None
-    if not (200 <= status_code < 300):
-        return "No Indexable"
+    has_response: bool,
+    blocked_by_robots: bool = False,
+) -> tuple[Optional[str], Optional[str]]:
+    """Devuelve `(indexability, indexability_status)` estilo Screaming Frog.
+
+    Razones de "Non-Indexable" priorizadas (la primera que case gana):
+        1. blocked_by_robots → "Blocked by Robots.txt"
+        2. not has_response → "Connection Error"
+        3. 4xx → "Client Error"
+        4. 5xx → "Server Error"
+        5. 3xx (raro: por defecto seguimos redirects) → "Redirected"
+        6. meta_robots o x_robots_tag con "noindex"/"none" → "Noindex"
+        7. canonical apunta a otra URL → "Canonicalised"
+
+    Nota: `blocked_by_robots` se evalúa antes que `has_response` aunque ambos
+    impliquen ausencia de respuesta. Cuando el usuario activa `--respect-robots`
+    y bloqueamos la URL, la razón concreta es "Blocked by Robots.txt", no
+    "Connection Error".
+    """
+    if blocked_by_robots:
+        return ("Non-Indexable", "Blocked by Robots.txt")
+    if not has_response or status_code is None:
+        return ("Non-Indexable", "Connection Error")
+    if 400 <= status_code < 500:
+        return ("Non-Indexable", "Client Error")
+    if 500 <= status_code < 600:
+        return ("Non-Indexable", "Server Error")
+    if 300 <= status_code < 400:
+        return ("Non-Indexable", "Redirected")
     for value in (meta_robots, x_robots_tag):
         if value:
             lowered = value.lower()
             if "noindex" in lowered or "none" in lowered:
-                return "No Indexable"
+                return ("Non-Indexable", "Noindex")
     if canonical and final_url:
         # canonical puede ser relativo: lo resolvemos con final_url como base.
         absolute = urljoin(final_url, canonical)
         if _norm(absolute) != _norm(final_url):
-            return "No Indexable"
-    return "Indexable"
+            return ("Non-Indexable", "Canonicalised")
+    return ("Indexable", None)

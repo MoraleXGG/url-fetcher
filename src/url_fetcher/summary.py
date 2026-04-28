@@ -39,17 +39,28 @@ def build_content_type_summary(results: list[UrlResult]) -> dict[str, int]:
     return dict(counter.most_common())
 
 
-def build_index_summary(results: list[UrlResult]) -> dict[str, int]:
-    """Cuenta por status_index. Bucket "N/A" para status_index None.
+def build_indexability_summary(results: list[UrlResult]) -> dict[str, int]:
+    """Cuenta por indexability. Bucket "(no evaluado)" cuando es None.
 
-    Aplicable solo a modo SEO; en modo básico todos serían "N/A".
+    Aplicable solo a modo SEO; en modo básico todos serían "(no evaluado)".
     """
     counter: Counter[str] = Counter()
     for r in results:
-        if r.status_index in ("Indexable", "No Indexable"):
-            counter[r.status_index] += 1
+        if r.indexability in ("Indexable", "Non-Indexable"):
+            counter[r.indexability] += 1
         else:
-            counter["N/A"] += 1
+            counter["(no evaluado)"] += 1
+    return dict(counter.most_common())
+
+
+def build_indexability_status_summary(results: list[UrlResult]) -> dict[str, int]:
+    """Cuenta por indexability_status, solo para URLs Non-Indexable."""
+    counter: Counter[str] = Counter()
+    for r in results:
+        if r.indexability != "Non-Indexable":
+            continue
+        reason = r.indexability_status or "(razón desconocida)"
+        counter[reason] += 1
     return dict(counter.most_common())
 
 
@@ -103,13 +114,21 @@ def format_summary(
                 blocks.append("\n".join(content_lines))
 
         if mode == "seo":
-            index_summary = build_index_summary(results)
-            if index_summary:
-                idx_lines = ["", "Por estado de indexación:"]
-                for label, count in index_summary.items():
+            indexability_summary = build_indexability_summary(results)
+            if indexability_summary:
+                idx_lines = ["", "Por indexability:"]
+                for label, count in indexability_summary.items():
                     pct = (count / n) * 100
                     idx_lines.append(f"  {label}: {count} ({pct:.1f}%)")
                 blocks.append("\n".join(idx_lines))
+
+            reason_summary = build_indexability_status_summary(results)
+            if reason_summary:
+                reason_lines = ["", "Por motivo de no indexación:"]
+                for label, count in reason_summary.items():
+                    pct = (count / n) * 100
+                    reason_lines.append(f"  {label}: {count} ({pct:.1f}%)")
+                blocks.append("\n".join(reason_lines))
 
     if output_path is not None:
         blocks.append(f"\nOutput: {output_path}")

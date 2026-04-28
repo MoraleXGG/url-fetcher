@@ -38,6 +38,11 @@ def _print_result(result: UrlResult) -> None:
     print(f"URL: {result.url}")
     if result.error is not None:
         print(f"Error: {result.error}")
+        # En modo SEO calculamos indexability incluso para errores de red o
+        # bloqueos por robots; si está rellenada, la imprimimos junto al error.
+        if result.indexability is not None:
+            print(f"Indexability: {_fmt(result.indexability)}")
+            print(f"Indexability status: {_fmt(result.indexability_status)}")
         return
     print(f"Final URL: {_fmt(result.final_url)}")
     print(f"Status: {_fmt(result.status_code)}")
@@ -46,11 +51,12 @@ def _print_result(result: UrlResult) -> None:
     print(f"Redirect URL: {_fmt(result.redirect_url)}")
     print(f"Redirect count: {result.redirect_count}")
 
-    # status_index solo se rellena en modo SEO; lo usamos como indicador de
+    # indexability solo se rellena en modo SEO; lo usamos como indicador de
     # que merece la pena imprimir el resto de campos SEO.
-    if result.status_index is None and result.size_kb is None:
+    if result.indexability is None and result.size_kb is None:
         return
-    print(f"Status index: {_fmt(result.status_index)}")
+    print(f"Indexability: {_fmt(result.indexability)}")
+    print(f"Indexability status: {_fmt(result.indexability_status)}")
     print(f"Title: {_fmt(result.title)}")
     print(f"Meta description: {_fmt(result.meta_description)}")
     print(f"Canonical: {_fmt(result.canonical)}")
@@ -140,6 +146,11 @@ def main() -> None:
         default="basic",
         help="Modo de extracción: basic (solo headers) o seo (parsea HTML)",
     )
+    parser.add_argument(
+        "--respect-robots",
+        action="store_true",
+        help="Comprobar robots.txt antes de pedir cada URL; las bloqueadas se marcan sin generar petición HTTP",
+    )
     args = parser.parse_args()
 
     if args.format is not None and args.format.lower() != "csv":
@@ -174,7 +185,12 @@ def main() -> None:
 
     start = time.perf_counter()
     results = asyncio.run(
-        fetch_all(clean.valid_unique, mode=args.mode, show_progress=True)
+        fetch_all(
+            clean.valid_unique,
+            mode=args.mode,
+            show_progress=True,
+            respect_robots=args.respect_robots,
+        )
     )
     elapsed = time.perf_counter() - start
 

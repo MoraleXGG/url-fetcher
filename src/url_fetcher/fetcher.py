@@ -4,6 +4,7 @@ import asyncio
 import sys
 import time
 from contextlib import nullcontext
+from typing import Optional
 
 import httpx
 from rich.console import Console
@@ -17,24 +18,53 @@ from rich.progress import (
 )
 
 from url_fetcher.models import UrlResult
-from url_fetcher.parser import compute_status_index, parse_html
+from url_fetcher.parser import compute_indexability, parse_html
+from url_fetcher.robots import RobotsChecker
 
 
 _MAX_PARSE_BYTES = 2 * 1024 * 1024  # 2 MB: bodies más grandes no se parsean.
 
 
+def _apply_seo_indexability(
+    result: UrlResult,
+    *,
+    has_response: bool,
+    blocked_by_robots: bool = False,
+) -> None:
+    """Calcula y asigna (indexability, indexability_status) cuando estamos en SEO."""
+    result.indexability, result.indexability_status = compute_indexability(
+        status_code=result.status_code,
+        meta_robots=result.meta_robots,
+        x_robots_tag=result.x_robots_tag,
+        canonical=result.canonical,
+        final_url=result.final_url,
+        has_response=has_response,
+        blocked_by_robots=blocked_by_robots,
+    )
+
+
 async def fetch_url(
-    client: httpx.AsyncClient, url: str, mode: str = "basic"
+    client: httpx.AsyncClient,
+    url: str,
+    mode: str = "basic",
+    robots_checker: Optional[RobotsChecker] = None,
 ) -> UrlResult:
     """Hace una petición async y devuelve los datos del modo solicitado.
 
-    El cliente se inyecta desde fuera para reutilizar el pool de conexiones TCP
-    entre todas las URLs del batch.
-
-    En modo `seo`, además de los campos básicos, rellena cabeceras SEO
-    (x-robots-tag, last-modified, size_kb), parsea el HTML si content-type es
-    text/html y body <= 2 MB, y calcula `status_index`.
+    Si `robots_checker` está presente y bloquea la URL, NO se hace petición
+    HTTP: se devuelve un `UrlResult` marcado con `error="Blocked by robots.txt"`
+    y, en modo SEO, con la indexability rellenada.
     """
+    if robots_checker is not None:
+        allowed = await robots_checker.is_allowed(url)
+        if not allowed:
+            result = UrlResult(url=url, error="Blocked by robots.txt")
+            if mode == "seo":
+                _apply_seo_indexability(
+                    result, has_response=False, blocked_by_robots=True
+                )
+            return result
+
     try:
         # perf_counter: monotónico y de alta resolución, ideal para latencia.
         start = time.perf_counter()
@@ -91,19 +121,19 @@ async def fetch_url(
                         file=sys.stderr,
                     )
 
-            result.status_index = compute_status_index(
-                result.status_code,
-                result.meta_robots,
-                result.x_robots_tag,
-                result.canonical,
-                result.final_url,
-            )
+            _apply_seo_indexability(result, has_response=True)
 
         return result
     except httpx.HTTPError as exc:
-        return UrlResult(url=url, error=str(exc))
+        result = UrlResult(url=url, error=str(exc))
+        if mode == "seo":
+            _apply_seo_indexability(result, has_response=False)
+        return result
     except Exception as exc:
-        return UrlResult(url=url, error=f"Unexpected: {exc}")
+        result = UrlResult(url=url, error=f"Unexpected: {exc}")
+        if mode == "seo":
+            _apply_seo_indexability(result, has_response=False)
+        return result
 
 
 async def fetch_all(
@@ -111,11 +141,15 @@ async def fetch_all(
     concurrency: int = 20,
     mode: str = "basic",
     timeout: int = 15,
-    user_agent: str = "url-fetcher/0.7",
+    user_agent: str = "url-fetcher/0.8",
     max_redirects: int = 10,
     show_progress: bool = True,
+    respect_robots: bool = False,
 ) -> list[UrlResult]:
     """Procesa una lista de URLs en paralelo y devuelve resultados en orden de entrada.
+
+    Si `respect_robots`, antes de cada petición se consulta el robots.txt del
+    dominio (con cache) y las URLs bloqueadas se marcan sin generar petición HTTP.
 
     Si `show_progress` y hay más de una URL, dibuja una barra `rich.Progress`
     en stderr (para no contaminar stdout cuando el resumen se redirige a un
@@ -151,6 +185,10 @@ async def fetch_all(
         max_redirects=max_redirects,
         follow_redirects=True,
     ) as client:
+        robots_checker = (
+            RobotsChecker(client, user_agent) if respect_robots else None
+        )
+
         with progress_ctx:
             task_id = (
                 progress.add_task("processing", total=len(urls))
@@ -160,7 +198,9 @@ async def fetch_all(
 
             async def _bounded_fetch(url: str) -> UrlResult:
                 async with semaphore:
-                    result = await fetch_url(client, url, mode=mode)
+                    result = await fetch_url(
+                        client, url, mode=mode, robots_checker=robots_checker
+                    )
                     if progress is not None:
                         progress.advance(task_id)
                     return result

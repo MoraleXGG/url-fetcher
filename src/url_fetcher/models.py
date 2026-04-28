@@ -18,7 +18,8 @@ class UrlResult:
     error: Optional[str] = None
 
     # Campos SEO (rellenos solo en --mode seo)
-    status_index: Optional[str] = None  # "Indexable" | "No Indexable" | None
+    indexability: Optional[str] = None         # "Indexable" | "Non-Indexable" | None
+    indexability_status: Optional[str] = None  # razón de no indexación (en inglés)
     title: Optional[str] = None
     meta_description: Optional[str] = None
     canonical: Optional[str] = None

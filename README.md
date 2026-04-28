@@ -4,7 +4,7 @@ CLI Python para enriquecer listados de URLs con datos HTTP y SEO en paralelo.
 
 ## Estado
 
-v0.7.0 - en desarrollo.
+v0.8.0 - en desarrollo.
 
 ## Funcionalidad prevista
 
@@ -16,6 +16,8 @@ v0.7.0 - en desarrollo.
 - ✅ Resumen estadístico por status_code y content_type.
 - ✅ Modo SEO: title, meta description, canonical, robots, h1s, lang, og:*, status_index.
 - ✅ Barra de progreso con tiempo estimado durante el rastreo.
+- ✅ Comprobación de robots.txt con cache por dominio.
+- ✅ Indexability completa estilo Screaming Frog (Indexable, Non-Indexable, motivo).
 
 ## Stack
 
@@ -68,6 +70,10 @@ Modo SEO (parsea HTML, extrae title, meta description, canonical, h1, etc.):
 Modo básico (default, solo headers HTTP):
 
     uv run url-fetcher urls.csv
+
+Respetar robots.txt (URLs bloqueadas se marcan sin generar petición):
+
+    uv run url-fetcher urls.csv --mode seo --respect-robots
 
 Limitaciones del modo SEO:
 - Solo parsea HTML estático. No ejecuta JavaScript.
