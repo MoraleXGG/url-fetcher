@@ -17,7 +17,7 @@ def generate_default_output_path(extension: str = "csv") -> Path:
     return output_dir / f"url-fetcher_{stamp}.{extension}"
 
 
-def write_csv(results: list[UrlResult], path: Path) -> None:
+def write_csv(results: list[UrlResult], path: Path, sep: str = ",") -> None:
     """Escribe los resultados a CSV con una columna por campo de UrlResult.
 
     - utf-8-sig: Excel en español detecta el BOM y muestra los acentos sin
@@ -26,11 +26,13 @@ def write_csv(results: list[UrlResult], path: Path) -> None:
       cabecera, sin repetirlo a mano (un cambio en `models.py` se refleja aquí).
     - None → cadena vacía: si dejamos el None pasar, csv escribe el literal
       "None" en la celda y los analistas piensan que es un valor real.
+    - `sep`: delimitador (",", ";", "\\t", etc.). Útil para Excel español que
+      espera ";" por configuración regional.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     columns = [f.name for f in fields(UrlResult)]
     with path.open("w", encoding="utf-8-sig", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=columns)
+        writer = csv.DictWriter(f, fieldnames=columns, delimiter=sep)
         writer.writeheader()
         for result in results:
             row = asdict(result)

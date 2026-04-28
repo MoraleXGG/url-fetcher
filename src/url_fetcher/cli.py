@@ -113,9 +113,11 @@ def _resolve_output_format(format_arg: str | None, output_path: Path | None) -> 
     return format_arg
 
 
-def _write_output(results: list[UrlResult], path: Path, output_format: str) -> None:
+def _write_output(
+    results: list[UrlResult], path: Path, output_format: str, sep: str = ","
+) -> None:
     if output_format == "csv":
-        write_csv(results, path)
+        write_csv(results, path, sep=sep)
     elif output_format == "json":
         write_json(results, path)
 
@@ -193,7 +195,75 @@ def main() -> None:
         action="store_true",
         help="Comprobar robots.txt antes de pedir cada URL; las bloqueadas se marcan sin generar petición HTTP",
     )
+    parser.add_argument(
+        "--concurrency",
+        type=int,
+        default=20,
+        metavar="N",
+        help="Peticiones simultáneas. Default: 20.",
+    )
+    parser.add_argument(
+        "--timeout",
+        type=float,
+        default=15.0,
+        metavar="SEC",
+        help="Timeout por petición en segundos. Default: 15.",
+    )
+    parser.add_argument(
+        "--retries",
+        type=int,
+        default=1,
+        metavar="N",
+        help="Reintentos en errores de red transitorios. Sin reintento en status codes ni SSL. Default: 1.",
+    )
+    parser.add_argument(
+        "--user-agent",
+        type=str,
+        default=None,
+        metavar="STRING",
+        help="User-Agent personalizado. Default: url-fetcher/<versión>.",
+    )
+    parser.add_argument(
+        "--max-redirects",
+        type=int,
+        default=10,
+        metavar="N",
+        help="Máximo de redirects a seguir. Default: 10.",
+    )
+    parser.add_argument(
+        "--max-body-size",
+        type=float,
+        default=2.0,
+        metavar="MB",
+        help="Tamaño máximo del body a parsear en modo SEO (en MB). Default: 2.",
+    )
+    parser.add_argument(
+        "--sep",
+        type=str,
+        default=",",
+        metavar="CHAR",
+        help="Separador del CSV de output. Default: ',' (coma).",
+    )
     args = parser.parse_args()
+
+    if args.concurrency < 1:
+        print("Error: --concurrency debe ser >= 1.", file=sys.stderr)
+        sys.exit(1)
+    if args.timeout <= 0:
+        print("Error: --timeout debe ser > 0.", file=sys.stderr)
+        sys.exit(1)
+    if args.retries < 0:
+        print("Error: --retries debe ser >= 0.", file=sys.stderr)
+        sys.exit(1)
+    if args.max_redirects < 0:
+        print("Error: --max-redirects debe ser >= 0.", file=sys.stderr)
+        sys.exit(1)
+    if args.max_body_size <= 0:
+        print("Error: --max-body-size debe ser > 0.", file=sys.stderr)
+        sys.exit(1)
+    if len(args.sep) != 1:
+        print("Error: --sep debe ser un único carácter.", file=sys.stderr)
+        sys.exit(1)
 
     output_format = _resolve_output_format(args.format, args.output)
 
@@ -224,6 +294,12 @@ def main() -> None:
             mode=args.mode,
             show_progress=True,
             respect_robots=args.respect_robots,
+            concurrency=args.concurrency,
+            timeout=args.timeout,
+            retries=args.retries,
+            user_agent=args.user_agent,
+            max_redirects=args.max_redirects,
+            max_body_size_mb=args.max_body_size,
         )
     )
     elapsed = time.perf_counter() - start
@@ -237,7 +313,7 @@ def main() -> None:
             if args.output
             else generate_default_output_path(output_format)
         )
-        _write_output(results, output_path, output_format)
+        _write_output(results, output_path, output_format, sep=args.sep)
     else:
         for i, result in enumerate(results):
             if i > 0:

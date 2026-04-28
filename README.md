@@ -4,7 +4,7 @@ CLI Python para enriquecer listados de URLs con datos HTTP y SEO en paralelo.
 
 ## Estado
 
-v0.9.0 - en desarrollo.
+v0.10.0 - en desarrollo.
 
 ## Funcionalidad prevista
 
@@ -18,6 +18,8 @@ v0.9.0 - en desarrollo.
 - ✅ Barra de progreso con tiempo estimado durante el rastreo.
 - ✅ Comprobación de robots.txt con cache por dominio.
 - ✅ Indexability completa estilo Screaming Frog (Indexable, Non-Indexable, motivo).
+- ✅ Configuración fina vía flags: --timeout, --retries, --user-agent, --concurrency, --max-redirects, --max-body-size, --sep.
+- ✅ Reintentos con backoff exponencial en errores transitorios.
 
 ## Stack
 
@@ -83,6 +85,28 @@ Output en JSON:
 Respetar robots.txt (URLs bloqueadas se marcan sin generar petición):
 
     uv run url-fetcher urls.csv --mode seo --respect-robots
+
+### Configuración avanzada
+
+UA personalizado (emular Googlebot):
+
+    uv run url-fetcher urls.csv --user-agent "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
+
+Concurrencia alta (sitios robustos):
+
+    uv run url-fetcher urls.csv --concurrency 100
+
+Timeout generoso (sitios lentos):
+
+    uv run url-fetcher urls.csv --timeout 60
+
+Reintentos en errores de red:
+
+    uv run url-fetcher urls.csv --retries 3
+
+Separador punto y coma para Excel español:
+
+    uv run url-fetcher urls.csv -o auditoria.csv --sep ";"
 
 Limitaciones del modo SEO:
 - Solo parsea HTML estático. No ejecuta JavaScript.
