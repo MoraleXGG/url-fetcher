@@ -48,23 +48,17 @@ def format_summary(
 ) -> str:
     """Compone el bloque "--- Resumen ---" como un único string."""
     n = len(results)
-    ok = sum(1 for r in results if r.error is None)
-    errors = n - ok
     dupes = clean_result.duplicates_count
     invalid_count = len(clean_result.invalid)
+    totals = dupes + invalid_count + n
 
-    main_parts = [f"Procesadas: {n}"]
+    main_parts = [f"Totales: {totals}"]
     if dupes > 0:
         main_parts.append(f"Duplicadas: {dupes}")
     if invalid_count > 0:
         main_parts.append(f"Inválidas: {invalid_count}")
-    main_parts.extend(
-        [
-            f"OK: {ok}",
-            f"Errores: {errors}",
-            f"Tiempo total: {elapsed_seconds:.2f}s",
-        ]
-    )
+    main_parts.append(f"Procesadas: {n}")
+    main_parts.append(f"Tiempo: {elapsed_seconds:.2f}s")
 
     blocks: list[str] = ["--- Resumen ---", " | ".join(main_parts)]
 
@@ -84,7 +78,7 @@ def format_summary(
             blocks.append("\n".join(status_lines))
 
         # Si todas las URLs son errores no tiene sentido el bloque de tipos.
-        if errors < n:
+        if any(r.error is None for r in results):
             content_summary = build_content_type_summary(results)
             if content_summary:
                 content_lines = ["", "Por content type:"]
